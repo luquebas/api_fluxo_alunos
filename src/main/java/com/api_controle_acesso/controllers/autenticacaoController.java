@@ -1,4 +1,6 @@
 package com.api_controle_acesso.controllers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,7 +19,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
-public class autenticacaoController {
+public class AutenticacaoController {
+
+    Logger logger = LoggerFactory.getLogger(AutenticacaoController.class);
     
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -32,8 +36,7 @@ public class autenticacaoController {
     HttpServletRequest request;
 
     @PostMapping("/login")
-    public ResponseEntity<Object> login(@RequestBody @Valid LoginDTO loginDto) {
-
+    public ResponseEntity<Object> login(@RequestBody @Valid LoginDTO loginDto) {    
         var authToken = new UsernamePasswordAuthenticationToken(loginDto.email(), loginDto.senha());
         var usuario = usuarioService.findUsuarioByEmail(loginDto.email());
 
