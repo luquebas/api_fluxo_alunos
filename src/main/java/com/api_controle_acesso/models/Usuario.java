@@ -145,4 +145,9 @@ public class Usuario implements UserDetails {
         if (usuarioPutDTO.nivel() != null)
             this.nivel = usuarioPutDTO.nivel();
     }
+
+    @Override
+    public String toString() {
+        return email;
+    }
 }

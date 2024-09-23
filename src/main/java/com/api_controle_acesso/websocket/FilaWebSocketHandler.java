@@ -1,10 +1,16 @@
 package com.api_controle_acesso.websocket;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import com.api_controle_acesso.controllers.UsuarioController;
+import com.api_controle_acesso.repositories.UsuarioRepository;
 import com.api_controle_acesso.services.FilaService;
 import com.api_controle_acesso.services.FilaWebsocketService;
 import com.google.gson.JsonObject;
@@ -17,7 +23,12 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     private FilaWebsocketService filaWebSocketService;
 
     @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
     private FilaService filaService;
+
+    Logger logger = LoggerFactory.getLogger(UsuarioController.class);
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -49,7 +60,19 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        filaWebSocketService.addSession(null, session);
+        Long id = null;
+        var sess = session.getPrincipal().toString();
+
+        String regex = "Principal=([^,]+)";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(sess);
+
+        if (matcher.find()) {
+            String email = matcher.group(1);
+            id = usuarioRepository.findByEmail(email).getId();
+        }
+
+        filaWebSocketService.addSession(id, session);
     }
 
     @Override

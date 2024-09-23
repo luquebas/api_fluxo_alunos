@@ -28,6 +28,9 @@ public class FilaWebsocketService {
     public void updateQueuePosition(Long userId, int position) {
         userQueuePositions.put(userId, position);
         notifyUser(userId, "Você está na posição " + position + " na fila.");
+        if (position == 1) {
+            notifyUser(userId, "Você pode sair da sala agora.");
+        }
     }
 
     public void notifyUser(Long userId, String message) {
