@@ -1,8 +1,9 @@
 package com.api_controle_acesso.services;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
-
+import java.util.ArrayList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -43,5 +44,9 @@ public class FilaService {
             Long nextUserId = queue.peek();
             filaWebSocketService.notifyUser(nextUserId, "Você pode sair da sala agora.");
         }
+    }
+
+    public List<Long> getQueue() {
+    return new ArrayList<>(queue);
     }
 }

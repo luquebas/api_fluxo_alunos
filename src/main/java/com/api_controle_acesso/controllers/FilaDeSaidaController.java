@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.api_controle_acesso.models.FilaDeSaida;
 import com.api_controle_acesso.models.Usuario;
 import com.api_controle_acesso.services.FilaDeSaidaService;
+import com.api_controle_acesso.services.FilaService;
 import com.api_controle_acesso.services.UsuarioService;
 
 @RestController
@@ -20,6 +21,9 @@ public class FilaDeSaidaController {
 
     @Autowired
     private FilaDeSaidaService filaDeSaidaService;
+
+    @Autowired
+    private FilaService filaService;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -53,5 +57,11 @@ public class FilaDeSaidaController {
     public ResponseEntity<List<FilaDeSaida>> getAlunosPorStatus(@PathVariable FilaDeSaida.StatusFila status) {
         List<FilaDeSaida> fila = filaDeSaidaService.getAlunosPorStatus(status);
         return ResponseEntity.ok(fila);
+    }
+
+    @GetMapping("/usuarios")
+    public ResponseEntity<List<Long>> getUsuariosNaFila() {
+        List<Long> usuariosNaFila = filaService.getQueue();
+        return ResponseEntity.ok(usuariosNaFila);
     }
 }
