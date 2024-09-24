@@ -35,11 +35,11 @@ public class FilaDeSaidaController {
         return ResponseEntity.ok(filaDeSaida);
     }
 
-    @PutMapping("/autorizar/{id}")
-    public ResponseEntity<Object> autorizarSaida(@PathVariable Long id) {
-        filaDeSaidaService.autorizarSaida(id);
-        return ResponseEntity.ok().build();
-    }
+    // @PutMapping("/autorizar/{id}")
+    // public ResponseEntity<Object> autorizarSaida(@PathVariable Long id) {
+    //     filaDeSaidaService.autorizarSaida(id);
+    //     return ResponseEntity.ok().build();
+    // }
 
     @PutMapping("/retornar/{id}")
     public ResponseEntity<Object> marcarRetorno(@PathVariable Long id) {
@@ -51,12 +51,6 @@ public class FilaDeSaidaController {
     public ResponseEntity<FilaDeSaida> getProximoAluno() {
         FilaDeSaida filaDeSaida = filaDeSaidaService.getProximoAluno();
         return ResponseEntity.ok(filaDeSaida);
-    }
-
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<FilaDeSaida>> getAlunosPorStatus(@PathVariable FilaDeSaida.StatusFila status) {
-        List<FilaDeSaida> fila = filaDeSaidaService.getAlunosPorStatus(status);
-        return ResponseEntity.ok(fila);
     }
 
     @GetMapping("/usuarios")

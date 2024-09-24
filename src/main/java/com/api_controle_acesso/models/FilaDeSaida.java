@@ -44,9 +44,12 @@ public class FilaDeSaida {
     @Column(name = "hora_autorizacao")
     private LocalDateTime horaAutorizacao;
 
+    @Column(name = "autorizado")
+    private boolean autorizado;
+
     public enum StatusFila {
         EM_ESPERA,
-        AUTORIZADO,
+        FORA_DA_SALA,
         RETORNOU
     }
 }

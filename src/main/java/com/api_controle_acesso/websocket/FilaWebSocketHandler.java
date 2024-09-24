@@ -9,7 +9,6 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import com.api_controle_acesso.controllers.UsuarioController;
 import com.api_controle_acesso.repositories.UsuarioRepository;
 import com.api_controle_acesso.services.FilaService;
 import com.api_controle_acesso.services.FilaWebsocketService;
@@ -28,20 +27,19 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private FilaService filaService;
 
-    Logger logger = LoggerFactory.getLogger(UsuarioController.class);
+    Logger logger = LoggerFactory.getLogger(FilaWebSocketHandler.class);
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
     
-        // Supondo que a mensagem está em formato JSON: {"userId": 1}
         Long userId = extractUserIdFromMessage(payload);
     
         if (userId != null) {
             if (payload.contains("sair")) {
                 filaService.addToQueue(userId);
             } else if (payload.contains("retornar")) {
-                filaService.userReturned(userId);
+                filaService.removeFromQueue(userId);
             }
         } else {
             session.sendMessage(new TextMessage("Erro: ID de usuário não encontrado."));

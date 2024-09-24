@@ -1,6 +1,5 @@
 package com.api_controle_acesso.services;
 import java.time.LocalDateTime;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.api_controle_acesso.models.FilaDeSaida;
@@ -21,12 +20,12 @@ public class FilaDeSaidaService {
         return filaDeSaidaRepository.save(filaDeSaida);
     }
 
-    public void autorizarSaida(Long id) {
-        FilaDeSaida filaDeSaida = filaDeSaidaRepository.findById(id).orElseThrow();
-        filaDeSaida.setStatus(FilaDeSaida.StatusFila.AUTORIZADO);
-        filaDeSaida.setHoraAutorizacao(LocalDateTime.now());
-        filaDeSaidaRepository.save(filaDeSaida);
-    }
+    // public void autorizarSaida(Long id) {
+    //     FilaDeSaida filaDeSaida = filaDeSaidaRepository.findById(id).orElseThrow();
+    //     filaDeSaida.setStatus(FilaDeSaida.StatusFila.AUTORIZADO);
+    //     filaDeSaida.setHoraAutorizacao(LocalDateTime.now());
+    //     filaDeSaidaRepository.save(filaDeSaida);
+    // }
 
     public void marcarRetorno(Long id) {
         FilaDeSaida filaDeSaida = filaDeSaidaRepository.findById(id).orElseThrow();
@@ -36,9 +35,5 @@ public class FilaDeSaidaService {
 
     public FilaDeSaida getProximoAluno() {
         return filaDeSaidaRepository.findTopByOrderByHoraSolicitacaoAsc();
-    }
-
-    public List<FilaDeSaida> getAlunosPorStatus(FilaDeSaida.StatusFila status) {
-        return filaDeSaidaRepository.findByStatus(status);
     }
 }
