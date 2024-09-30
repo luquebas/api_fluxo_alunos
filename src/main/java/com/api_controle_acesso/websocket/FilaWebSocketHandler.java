@@ -10,7 +10,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.api_controle_acesso.repositories.UsuarioRepository;
-import com.api_controle_acesso.services.FilaService;
+
 import com.api_controle_acesso.services.FilaWebsocketService;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -24,25 +24,33 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    @Autowired
-    private FilaService filaService;
-
     Logger logger = LoggerFactory.getLogger(FilaWebSocketHandler.class);
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-    
         Long userId = extractUserIdFromMessage(payload);
-    
-        if (userId != null) {
-            if (payload.contains("sair")) {
-                filaService.addToQueue(userId);
-            } else if (payload.contains("retornar")) {
-                filaService.removeFromQueue(userId);
+        
+        if (payload.contains("trocarStatus") && userId != null) {
+            if (filaWebSocketService.isUserFirstInQueue(userId)) {
+                filaWebSocketService.notifyUser(userId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você pode trocar seu status para FORA_DA_SALA.\"}");
+                filaWebSocketService.changeUserStatusToForaDaSala(userId);
+                filaWebSocketService.notifyUser(userId, "{\"type\":\"user\",\"status\":\"fora_da_sala\"}");
+            } else {
+                filaWebSocketService.notifyUser(userId, "{\"type\":\"user\",\"status\":\"nao_primeiro\"}");
             }
+        } else if (payload.contains("response")) {
+            processAdminResponse(payload);
         } else {
-            session.sendMessage(new TextMessage("Erro: ID de usuário não encontrado."));
+            if (userId != null) {
+                if (payload.contains("sair")) {
+                    filaWebSocketService.addToQueue(userId);
+                } else if (payload.contains("retornar")) {
+                    filaWebSocketService.removeFromQueue(userId);
+                }
+            } else {
+                session.sendMessage(new TextMessage("Erro: ID de usuário não encontrado."));
+            }
         }
     }
     
@@ -76,6 +84,27 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         filaWebSocketService.removeSession(session);
+    }
+
+
+    private void processAdminResponse(String payload) {
+        JsonObject jsonObject = JsonParser.parseString(payload).getAsJsonObject();
+        Long exitingUserId = jsonObject.get("userId").getAsLong();
+        String response = jsonObject.get("response").getAsString();
+    
+        if (filaWebSocketService.pendingRequests.containsKey(exitingUserId)) {
+            if ("sim".equalsIgnoreCase(response)) {
+                filaWebSocketService.approveAddToQueue(exitingUserId);
+                filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"authorized\"}");
+    
+                if (filaWebSocketService.isUserFirstInQueue(exitingUserId)) {
+                    filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você é o primeiro na fila e pode trocar seu status para FORA_DA_SALA.\"}");
+                }
+            } else if ("não".equalsIgnoreCase(response)) {
+                filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"denied\"}");
+            }
+            filaWebSocketService.pendingRequests.remove(exitingUserId);
+        }
     }
 }
     
