@@ -6,7 +6,10 @@ import java.util.Map;
 import java.util.Set;
 import java.time.LocalDateTime;
 import java.util.concurrent.CopyOnWriteArraySet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -15,23 +18,24 @@ import com.api_controle_acesso.models.Usuario;
 import com.api_controle_acesso.models.enums.Role;
 import com.api_controle_acesso.repositories.FilaDeSaidaRepository;
 import com.api_controle_acesso.repositories.UsuarioRepository;
-
 import jakarta.transaction.Transactional;
 
 @Service
+@Scope("singleton")
 public class FilaWebsocketService {
 
     private final Map<Long, WebSocketSession> userSessions = new HashMap<>();
     private final Set<WebSocketSession> sessions = new CopyOnWriteArraySet<>();
     private final Map<Long, Integer> userQueuePositions = new HashMap<>();
-    
-    public Map<Long, Long> pendingRequests = new HashMap<>();
 
     @Autowired
     private UsuarioRepository usuarioRepository;
 
     @Autowired
     private FilaDeSaidaRepository filaDeSaidaRepository;
+    
+    Logger logger = LoggerFactory.getLogger(FilaWebsocketService.class);
+
 
     public void addSession(Long userId, WebSocketSession session) {
         userSessions.put(userId, session);
@@ -74,9 +78,10 @@ public class FilaWebsocketService {
         }
     }
 
-    public void requestToLeaveRoom(Long userId) {
+    public void requestToLeaveRoom(Long userId, HashMap<Long, Long> pendingRequests) {
         Long adminId = getAdminIdForUser(userId);
         pendingRequests.put(userId, adminId);
+        logger.info(pendingRequests.get(userId).toString());
         notifyAdmin(adminId, userId);
 
         if (isUserFirstInQueue(userId)) {
@@ -101,12 +106,7 @@ public class FilaWebsocketService {
             .filter(user -> user.getCurso() != null)
             .map(user -> usuarioRepository.findByCursoAndRole(user.getCurso(), Role.ROLE_ADMIN))
             .flatMap(admins -> admins.stream().findFirst())
-            .map(Usuario::getId)
-            .orElse(null);
-    }
-
-    public void addToQueue(Long userId) {
-        requestToLeaveRoom(userId);
+            .map(Usuario::getId).orElse(null);
     }
 
     public void removeFromQueue(Long userId) {
@@ -143,10 +143,12 @@ public class FilaWebsocketService {
             .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
         FilaDeSaida filaDeSaida = new FilaDeSaida();
+
         filaDeSaida.setUsuario(usuario);
         filaDeSaida.setStatus(FilaDeSaida.StatusFila.EM_ESPERA);
         filaDeSaida.setHoraSolicitacao(LocalDateTime.now());
         filaDeSaida.setAutorizado(true);
+
         filaDeSaidaRepository.save(filaDeSaida);
 
         updateQueue(getQueue());
@@ -169,16 +171,5 @@ public class FilaWebsocketService {
                 fila.setAutorizado(true);
                 filaDeSaidaRepository.save(fila);
             });
-    }
-
-    public void adicionarAlunoNaFilaComStatus(Long usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId).orElseThrow();
-        FilaDeSaida filaDeSaida = new FilaDeSaida();
-        filaDeSaida.setUsuario(usuario);
-        filaDeSaida.setStatus(FilaDeSaida.StatusFila.EM_ESPERA);
-        filaDeSaida.setHoraSolicitacao(LocalDateTime.now());
-        filaDeSaida.setAutorizado(true);
-        filaDeSaida.setHoraAutorizacao(LocalDateTime.now());
-        filaDeSaidaRepository.save(filaDeSaida);
     }
 }

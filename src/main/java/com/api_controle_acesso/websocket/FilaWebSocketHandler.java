@@ -1,4 +1,5 @@
 package com.api_controle_acesso.websocket;
+import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -10,7 +11,6 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.api_controle_acesso.repositories.UsuarioRepository;
-
 import com.api_controle_acesso.services.FilaWebsocketService;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -26,11 +26,13 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
 
     Logger logger = LoggerFactory.getLogger(FilaWebSocketHandler.class);
 
+    public HashMap<Long, Long> pendingRequests = new HashMap<>();
+
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
         Long userId = extractUserIdFromMessage(payload);
-        
+    
         if (payload.contains("trocarStatus") && userId != null) {
             if (filaWebSocketService.isUserFirstInQueue(userId)) {
                 filaWebSocketService.notifyUser(userId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você pode trocar seu status para FORA_DA_SALA.\"}");
@@ -40,11 +42,29 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
                 filaWebSocketService.notifyUser(userId, "{\"type\":\"user\",\"status\":\"nao_primeiro\"}");
             }
         } else if (payload.contains("response")) {
-            processAdminResponse(payload);
+            JsonObject jsonObject = JsonParser.parseString(payload).getAsJsonObject();
+            Long exitingUserId = jsonObject.get("userId").getAsLong();
+            String response = jsonObject.get("response").getAsString();
+    
+            if (pendingRequests.containsKey(exitingUserId)) {
+                if ("sim".equalsIgnoreCase(response)) {
+                    filaWebSocketService.approveAddToQueue(exitingUserId);
+                    filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"authorized\"}");
+    
+                    if (filaWebSocketService.isUserFirstInQueue(exitingUserId)) {
+                        filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você é o primeiro na fila e pode trocar seu status para FORA_DA_SALA.\"}");
+                    }
+                } else if ("não".equalsIgnoreCase(response)) {
+                    filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"denied\"}");
+                }
+                pendingRequests.remove(exitingUserId);
+            } else {
+                session.sendMessage(new TextMessage("Erro: Pedido não encontrado para o usuário."));
+            }
         } else {
             if (userId != null) {
                 if (payload.contains("sair")) {
-                    filaWebSocketService.addToQueue(userId);
+                    filaWebSocketService.requestToLeaveRoom(userId, pendingRequests);
                 } else if (payload.contains("retornar")) {
                     filaWebSocketService.removeFromQueue(userId);
                 }
@@ -84,27 +104,6 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         filaWebSocketService.removeSession(session);
-    }
-
-
-    private void processAdminResponse(String payload) {
-        JsonObject jsonObject = JsonParser.parseString(payload).getAsJsonObject();
-        Long exitingUserId = jsonObject.get("userId").getAsLong();
-        String response = jsonObject.get("response").getAsString();
-    
-        if (filaWebSocketService.pendingRequests.containsKey(exitingUserId)) {
-            if ("sim".equalsIgnoreCase(response)) {
-                filaWebSocketService.approveAddToQueue(exitingUserId);
-                filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"authorized\"}");
-    
-                if (filaWebSocketService.isUserFirstInQueue(exitingUserId)) {
-                    filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você é o primeiro na fila e pode trocar seu status para FORA_DA_SALA.\"}");
-                }
-            } else if ("não".equalsIgnoreCase(response)) {
-                filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"denied\"}");
-            }
-            filaWebSocketService.pendingRequests.remove(exitingUserId);
-        }
     }
 }
     
