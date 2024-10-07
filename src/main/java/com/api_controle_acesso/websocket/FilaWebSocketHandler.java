@@ -2,6 +2,7 @@ package com.api_controle_acesso.websocket;
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +100,15 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
         }
 
         filaWebSocketService.addSession(id, session);
+
+        List<Long> queue = filaWebSocketService.getQueue();
+        int position = queue.indexOf(id) + 1; 
+
+        if (position > 0) {
+            filaWebSocketService.notifyUser(id, "{\"type\":\"user\",\"status\":\"posicao_fila\",\"message\":\"Você está na posição " + position + " na fila.\"}");
+        } else {
+            filaWebSocketService.notifyUser(id, "{\"type\":\"user\",\"status\":\"fora_fila\",\"message\":\"Você não está na fila no momento.\"}");
+        }
     }
 
     @Override

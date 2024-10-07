@@ -23,7 +23,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -43,12 +42,10 @@ public class Usuario implements UserDetails {
     public Usuario(UsuarioPostDTO dadosUsuario) {
         this.nome = dadosUsuario.nome();
         this.dataNascimento = dadosUsuario.dataNascimento();
-        this.matricula = dadosUsuario.matricula();
         this.curso = dadosUsuario.curso();
         this.cpf = dadosUsuario.cpf();
         this.email = dadosUsuario.email();
         this.senha = dadosUsuario.senha();
-        this.nivel = dadosUsuario.nivel();
     }
 
     @Id @GeneratedValue(strategy = GenerationType.AUTO)
@@ -59,9 +56,6 @@ public class Usuario implements UserDetails {
 
     @Column(name = "data_nascimento")
     private LocalDate dataNascimento;
-
-    @Column(name = "matricula")
-    private String matricula;
 
     @JoinColumn(name = "curso_id")
     @ManyToOne(fetch = FetchType.LAZY)
@@ -76,13 +70,6 @@ public class Usuario implements UserDetails {
 
     @Column(name = "senha")
     private String senha;
-
-    @Size(max = 100000)
-    @Column(name = "foto", columnDefinition = "LONGTEXT")
-    private String foto;
-
-    @Column(name = "nivel")
-    private String nivel;
 
     @Column(name = "role")
     @Enumerated(EnumType.STRING)
@@ -102,7 +89,7 @@ public class Usuario implements UserDetails {
 
     @Override
     public String getUsername() {
-        return matricula;
+        return nome;
     }
 
     @Override
@@ -134,15 +121,9 @@ public class Usuario implements UserDetails {
         
         if (usuarioPutDTO.dataNascimento() !=  null)
             this.dataNascimento = usuarioPutDTO.dataNascimento();
-
-        if (usuarioPutDTO.matricula() != null)
-            this.matricula = usuarioPutDTO.matricula();
         
         if (usuarioPutDTO.cpf() != null)
             this.cpf = usuarioPutDTO.cpf();
-
-        if (usuarioPutDTO.nivel() != null)
-            this.nivel = usuarioPutDTO.nivel();
     }
 
     @Override
