@@ -13,6 +13,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.api_controle_acesso.repositories.UsuarioRepository;
 import com.api_controle_acesso.services.FilaWebsocketService;
+import com.api_controle_acesso.services.JWTService;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -21,6 +22,9 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
 
     @Autowired
     private FilaWebsocketService filaWebSocketService;
+
+    @Autowired
+    private JWTService jwtService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -33,6 +37,26 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
         Long userId = extractUserIdFromMessage(payload);
+
+        if (payload.contains("authenticate")) {
+            JsonObject jsonObject = JsonParser.parseString(payload).getAsJsonObject();
+            String token = jsonObject.get("token").getAsString();
+
+            if (token != null && jwtService.tokenValido(token)) {
+                String subject = jwtService.getSubject(token); 
+                Long id = Long.parseLong(subject);
+                
+                session.getAttributes().put("userId", id);
+                filaWebSocketService.addSession(userId, session);
+                
+                session.sendMessage(new TextMessage("{\"type\":\"success\",\"message\":\"Token autenticado com sucesso!\"}"));
+            } else {
+                session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Token inválido.\"}"));
+                session.close();
+            }
+        } else {
+            logger.info("Mensagem recebida do cliente: " + payload);
+        }
     
         if (payload.contains("trocarStatus") && userId != null) {
             if (filaWebSocketService.isUserFirstInQueue(userId)) {
