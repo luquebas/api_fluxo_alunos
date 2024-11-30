@@ -1,4 +1,5 @@
 package com.api_controle_acesso.websocket;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,9 +12,14 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+
+import com.api_controle_acesso.models.FilaDeSaida;
+import com.api_controle_acesso.models.enums.TipoSaida;
+import com.api_controle_acesso.repositories.FilaDeSaidaRepository;
 import com.api_controle_acesso.repositories.UsuarioRepository;
 import com.api_controle_acesso.services.FilaWebsocketService;
 import com.api_controle_acesso.services.JWTService;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -28,6 +34,9 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private FilaDeSaidaRepository filaDeSaidaRepository;
 
     Logger logger = LoggerFactory.getLogger(FilaWebSocketHandler.class);
 
@@ -73,7 +82,11 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     
             if (pendingRequests.containsKey(exitingUserId)) {
                 if ("sim".equalsIgnoreCase(response)) {
-                    filaWebSocketService.approveAddToQueue(exitingUserId);
+                    
+                    JsonObject json = JsonParser.parseString(payload).getAsJsonObject();
+                    TipoSaida tipoSaida = TipoSaida.valueOf(json.get("tipoSaida").getAsString());
+
+                    filaWebSocketService.approveAddToQueue(userId, tipoSaida); 
                     filaWebSocketService.notifyUser(exitingUserId, "{\"type\":\"user\",\"status\":\"authorized\"}");
     
                     if (filaWebSocketService.isUserFirstInQueue(exitingUserId)) {
@@ -86,12 +99,19 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
             } else {
                 session.sendMessage(new TextMessage("Erro: Pedido não encontrado para o usuário."));
             }
+            enviarListaAtualizada();
         } else {
             if (userId != null) {
                 if (payload.contains("sair")) {
-                    filaWebSocketService.requestToLeaveRoom(userId, pendingRequests);
+                    JsonObject jsonObject = JsonParser.parseString(payload).getAsJsonObject();
+                    String tipoSaidaStr = jsonObject.get("tipoSaida").getAsString();  // Extrai o tipo de saída
+                    TipoSaida tipoSaida = TipoSaida.valueOf(tipoSaidaStr);  // Converte para o enum TipoSaida
+
+                    filaWebSocketService.requestToLeaveRoom(userId, pendingRequests, tipoSaida);  
+                    enviarListaAtualizada();
                 } else if (payload.contains("retornar")) {
                     filaWebSocketService.removeFromQueue(userId);
+                    enviarListaAtualizada();
                 }
             } else {
                 session.sendMessage(new TextMessage("Erro: ID de usuário não encontrado."));
@@ -124,6 +144,7 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
         }
 
         filaWebSocketService.addSession(id, session);
+        enviarListaAtualizada();
 
         List<Long> queue = filaWebSocketService.getQueue();
         int position = queue.indexOf(id) + 1; 
@@ -138,6 +159,29 @@ public class FilaWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         filaWebSocketService.removeSession(session);
+    }
+
+    private void enviarListaAtualizada() {
+            
+        List<FilaDeSaida> filaDeSaida = filaDeSaidaRepository.getFilaDeSaidaComUsuarios();
+
+        JsonArray listaUsuarios = new JsonArray();
+        for (FilaDeSaida fila : filaDeSaida) {
+            JsonObject usuarioStatus = new JsonObject();
+            usuarioStatus.addProperty("userId", fila.getUsuario().getId());
+            usuarioStatus.addProperty("nome", fila.getUsuario().getNome());
+            usuarioStatus.addProperty("status", fila.getStatus().name());
+            usuarioStatus.addProperty("tipo_saida", fila.getTipoSaida().name());
+            listaUsuarios.add(usuarioStatus);
+        }
+
+        for (WebSocketSession sessao : filaWebSocketService.getSessions()) {
+            try {
+                sessao.sendMessage(new TextMessage(listaUsuarios.toString()));
+            } catch (IOException e) {
+                logger.error("Erro ao enviar lista atualizada via WebSocket", e);
+            }
+        }
     }
 }
     

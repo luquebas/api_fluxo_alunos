@@ -1,11 +1,10 @@
 package com.api_controle_acesso.services;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.time.LocalDateTime;
-import java.util.concurrent.CopyOnWriteArraySet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +15,7 @@ import org.springframework.web.socket.WebSocketSession;
 import com.api_controle_acesso.models.FilaDeSaida;
 import com.api_controle_acesso.models.Usuario;
 import com.api_controle_acesso.models.enums.Role;
+import com.api_controle_acesso.models.enums.TipoSaida;
 import com.api_controle_acesso.repositories.FilaDeSaidaRepository;
 import com.api_controle_acesso.repositories.UsuarioRepository;
 import jakarta.transaction.Transactional;
@@ -25,7 +25,7 @@ import jakarta.transaction.Transactional;
 public class FilaWebsocketService {
 
     private final Map<Long, WebSocketSession> userSessions = new HashMap<>();
-    private final Set<WebSocketSession> sessions = new CopyOnWriteArraySet<>();
+    private Map<Long, WebSocketSession> sessions = new HashMap<>();
     private final Map<Long, Integer> userQueuePositions = new HashMap<>();
 
     @Autowired
@@ -39,12 +39,15 @@ public class FilaWebsocketService {
 
     public void addSession(Long userId, WebSocketSession session) {
         userSessions.put(userId, session);
-        sessions.add(session);
+        sessions.put(userId, session);
     }
 
     public void removeSession(WebSocketSession session) {
-        userSessions.entrySet().removeIf(entry -> entry.getValue().equals(session));
-        sessions.remove(session);
+        sessions.entrySet().removeIf(entry -> entry.getValue().equals(session));
+    }
+
+    public List<WebSocketSession> getSessions() {
+        return new ArrayList<>(sessions.values()); 
     }
 
     public void updateQueuePosition(Long userId, int position) {
@@ -67,7 +70,7 @@ public class FilaWebsocketService {
     }
 
     public void notifyAllSessions(String message) {
-        for (WebSocketSession session : sessions) {
+        for (WebSocketSession session : sessions.values()) {
             if (session.isOpen()) {
                 try {
                     session.sendMessage(new TextMessage(message));
@@ -78,14 +81,14 @@ public class FilaWebsocketService {
         }
     }
 
-    public void requestToLeaveRoom(Long userId, HashMap<Long, Long> pendingRequests) {
+    public void requestToLeaveRoom(Long userId, HashMap<Long, Long> pendingRequests, TipoSaida tipoSaida) {
         Long adminId = getAdminIdForUser(userId);
         pendingRequests.put(userId, adminId);
-        logger.info(pendingRequests.get(userId).toString());
         notifyAdmin(adminId, userId);
-
+        logger.info("Pedido de saída aguardando aprovação. Usuário: " + userId + " Administrador: " + adminId);
+        
         if (isUserFirstInQueue(userId)) {
-            notifyUser(userId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você é o primeiro na fila e pode trocar seu status para FORA_DA_SALA.\"}");
+            notifyUser(userId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você pode trocar seu status para FORA_DA_SALA.\"}");
         }
     }
 
@@ -138,18 +141,25 @@ public class FilaWebsocketService {
     }
 
     @Transactional
-    public void approveAddToQueue(Long userId) {
+    public void approveAddToQueue(Long userId, TipoSaida tipoSaida) {
+    
         Usuario usuario = usuarioRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+        .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
         FilaDeSaida filaDeSaida = new FilaDeSaida();
-
         filaDeSaida.setUsuario(usuario);
         filaDeSaida.setStatus(FilaDeSaida.StatusFila.EM_ESPERA);
         filaDeSaida.setHoraSolicitacao(LocalDateTime.now());
         filaDeSaida.setAutorizado(true);
+        filaDeSaida.setTipoSaida(tipoSaida);
 
         filaDeSaidaRepository.save(filaDeSaida);
+
+        notifyUser(userId, "{\"type\":\"user\",\"status\":\"authorized\"}");
+
+        if (isUserFirstInQueue(userId)) {
+            notifyUser(userId, "{\"type\":\"user\",\"status\":\"primeiro\",\"message\":\"Você pode trocar seu status para FORA_DA_SALA.\"}");
+        }
 
         updateQueue(getQueue());
     }
@@ -172,4 +182,9 @@ public class FilaWebsocketService {
                 filaDeSaidaRepository.save(fila);
             });
     }
+
+    public List<FilaDeSaida> getFilaDeSaida() {
+        return filaDeSaidaRepository.findByStatusNot(FilaDeSaida.StatusFila.RETORNOU);
+    }
+
 }

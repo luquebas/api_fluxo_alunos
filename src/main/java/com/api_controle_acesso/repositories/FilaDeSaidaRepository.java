@@ -1,10 +1,11 @@
 package com.api_controle_acesso.repositories;
 import java.util.List;
 import java.util.Optional;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import com.api_controle_acesso.models.FilaDeSaida;
 import com.api_controle_acesso.models.enums.TipoSaida;
 
@@ -29,4 +30,13 @@ public interface FilaDeSaidaRepository extends JpaRepository<FilaDeSaida, Long> 
     Optional<FilaDeSaida> findById(Long id);
     Optional<FilaDeSaida> findByUsuarioIdAndStatus(Long usuarioId, FilaDeSaida.StatusFila status);
     List<FilaDeSaida> findByTipoSaida(TipoSaida tipoSaida);
+    List<FilaDeSaida> findByStatusNot(FilaDeSaida.StatusFila retornou);
+
+    @Query("SELECT f FROM FilaDeSaida f JOIN FETCH f.usuario WHERE f.autorizado = true AND f.status != 'RETORNOU' ORDER BY f.horaSolicitacao ASC")
+    List<FilaDeSaida> getFilaDeSaidaComUsuarios();
+
+    FilaDeSaida findByUsuarioId(Long userId);
+
+    @Query("SELECT COUNT(f) > 0 FROM FilaDeSaida f WHERE f.usuario.id = :usuarioId AND f.status <> 'RETORNOU'")
+    boolean existsByUsuarioIdAndStatusNot(@Param("usuarioId") Long usuarioId);
 }
