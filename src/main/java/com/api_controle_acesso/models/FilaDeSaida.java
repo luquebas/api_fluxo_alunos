@@ -1,7 +1,6 @@
 package com.api_controle_acesso.models;
-
 import java.time.LocalDateTime;
-
+import com.api_controle_acesso.models.enums.TipoSaida;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -37,6 +36,10 @@ public class FilaDeSaida {
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private StatusFila status;
+
+    @Column(name = "tipo_saida")
+    @Enumerated(EnumType.STRING)
+    private TipoSaida tipoSaida;
 
     @Column(name = "hora_solicitacao")
     private LocalDateTime horaSolicitacao;

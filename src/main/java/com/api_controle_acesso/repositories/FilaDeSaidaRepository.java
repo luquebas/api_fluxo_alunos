@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import com.api_controle_acesso.models.FilaDeSaida;
+import com.api_controle_acesso.models.enums.TipoSaida;
 
 import jakarta.transaction.Transactional;
 
@@ -27,4 +28,5 @@ public interface FilaDeSaidaRepository extends JpaRepository<FilaDeSaida, Long> 
     void removerDaLista(Long id);
     Optional<FilaDeSaida> findById(Long id);
     Optional<FilaDeSaida> findByUsuarioIdAndStatus(Long usuarioId, FilaDeSaida.StatusFila status);
+    List<FilaDeSaida> findByTipoSaida(TipoSaida tipoSaida);
 }
