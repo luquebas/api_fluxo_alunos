@@ -21,4 +21,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Usuario findByEmail(String email);
 
     List<Usuario> findByCursoAndRole(Curso cursoId, Role role);
+
+    boolean existsByEmail(String adminEmail);
 }
